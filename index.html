@@ -203,7 +203,6 @@
             background: var(--danger);
         }
 
-        /* Chat & Emoji Section - Premium & Compact Look */
         .chat-section {
             flex: 1;
             min-width: 280px;
@@ -443,7 +442,6 @@
     const myId = generate4DigitCode();
     document.getElementById('my-code-display').innerText = myId;
 
-    // ফ্রি পাবলিক STUN সার্ভার যুক্ত করা হয়েছে যাতে যেকোনো নেটওয়ার্ক থেকে ভিডিও কানেক্ট হতে পারে
     peer = new Peer(myId, {
         config: {
             'iceServers': [
@@ -454,12 +452,11 @@
     });
 
     peer.on('open', (id) => {
-        console.log('Connected with ID:', id);
+        console.log('My Peer ID:', id);
     });
 
-    // কেউ কল করলে সাথে সাথে ক্যামেরা অন করে অটোমেটিক ব্যাক কল বা অ্যানসার করা হবে
+    // কল আসলে অটো রিসিভ করে নিজের স্ট্রিম পাঠানো নিশ্চিত করা
     peer.on('call', async (call) => {
-        console.log("Incoming call received...");
         const stream = await ensureLocalStream();
         call.answer(stream);
         setupCallEvents(call);
@@ -467,7 +464,6 @@
     });
 
     peer.on('connection', (connection) => {
-        console.log("Incoming data connection...");
         conn = connection;
         setupConnectionEvents();
         lockUIOnConnect();
@@ -484,7 +480,7 @@
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        // ভিডিও স্ট্রিম নিশ্চিত করে অপরপক্ষকে কল পাঠানো
+        // ভিডিও স্ট্রিম নিয়ে কল ইনিশিয়েট করা
         const stream = await ensureLocalStream();
         const call = peer.call(remoteId, stream);
         setupCallEvents(call);
@@ -494,22 +490,22 @@
         currentCall = call;
         
         call.on('stream', (remoteStream) => {
-            console.log("Remote stream received successfully!");
             const remoteVideo = document.getElementById('remote-video');
             remoteVideo.srcObject = remoteStream;
             
-            remoteVideo.play().then(() => {
-                console.log("Remote video playing smoothly.");
-            }).catch(e => {
-                console.log("Autoplay blocked, waiting for user click:", e);
-                document.addEventListener('click', () => {
-                    remoteVideo.play();
-                }, { once: true });
-            });
+            // ব্রাউজার পলিসি বাইপাস করে ভিডিও প্লে করার চেষ্টা
+            let playPromise = remoteVideo.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("Autoplay blocked, enabling click listener to play.");
+                    document.body.addEventListener('click', () => {
+                        remoteVideo.play();
+                    }, { once: true });
+                });
+            }
         });
         
         call.on('close', () => {
-            console.log("Call closed.");
             triggerDisconnect(false);
         });
     }
@@ -524,28 +520,48 @@
         remoteInput.disabled = true;
     }
 
-    function ensureLocalStream() {
-        if (localStream) return Promise.resolve(localStream);
-        return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true }).then(stream => {
-            localStream = stream;
+    async function ensureLocalStream() {
+        if (localStream) return localStream;
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'user' }, 
+                audio: true 
+            });
             const localVideo = document.getElementById('local-video');
-            localVideo.srcObject = stream;
-            localVideo.play().catch(e => console.log("Local video play error:", e));
+            localVideo.srcObject = localStream;
+            await localVideo.play();
             
             isCameraOn = true;
             const camBtn = document.getElementById('cam-btn');
             camBtn.innerText = "Turn Off Cam";
             camBtn.classList.add('active');
-            
             updateCameraLabel(true);
 
             document.getElementById('mic-btn').disabled = false;
             document.getElementById('switch-cam-btn').disabled = false;
-            return stream;
-        }).catch((err) => {
-            console.warn("Media error, falling back to audio/empty:", err);
-            return navigator.mediaDevices.getUserMedia({ video: false, audio: true }).catch(() => new MediaStream());
-        });
+            return localStream;
+        } catch (err) {
+            console.warn("Camera/Mic error, generating fallback empty stream:", err);
+            // অডিও-ভিডিও ফেইল করলে ব্ল্যাংক স্ট্রিম তৈরি করবে যাতে কল ক্র্যাশ না করে
+            const canvas = document.createElement('canvas');
+            canvas.width = 640; canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let fakeStream = canvas.captureStream(10);
+            
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const dst = oscillator.connect(audioCtx.createMediaStreamDestination());
+                oscillator.start();
+                fakeStream.addTrack(dst.stream.getAudioTracks()[0]);
+            } catch(e) {}
+
+            localStream = fakeStream;
+            document.getElementById('local-video').srcObject = localStream;
+            return localStream;
+        }
     }
 
     function updateCameraLabel(isOn) {
@@ -681,7 +697,7 @@
     function sendEmoji(emoji) {
         if (conn && conn.open) {
             conn.send({ type: 'emoji', emoji: emoji });
-            triggerEmojiAnimation(emoji);
+            triggerEmojiAnalytics(emoji);
             appendMessage(`${emoji}`, 'outgoing');
         } else {
             alert('Not connected to any partner yet!');
@@ -690,20 +706,14 @@
 
     function triggerEmojiAnimation(emoji) {
         const overlay = document.getElementById('animation-overlay');
-        
         for (let i = 0; i < 5; i++) {
             const el = document.createElement('div');
             el.className = 'floating-emoji';
             el.innerText = emoji;
-            
             el.style.left = Math.random() * 80 + 10 + 'vw';
             el.style.animationDuration = (3 + Math.random()) + 's';
-            
             overlay.appendChild(el);
-
-            setTimeout(() => {
-                el.remove();
-            }, 4000);
+            setTimeout(() => el.remove(), 4000);
         }
     }
 
