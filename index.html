@@ -86,7 +86,7 @@
             justify-content: flex-end;
         }
 
-        input {
+        .connect-box input {
             background: rgba(15, 23, 42, 0.8);
             border: 1px solid var(--border);
             color: var(--text-main);
@@ -100,7 +100,7 @@
             min-width: 150px;
         }
 
-        input:disabled {
+        .connect-box input:disabled {
             background: #1e293b;
             cursor: not-allowed;
             opacity: 0.7;
@@ -254,24 +254,22 @@
             align-self: flex-end;
         }
 
-        /* Emoji Selection Bar replacing text input */
+        /* Emoji Quick Bar */
         .emoji-bar {
             display: flex;
-            padding: 10px;
+            padding: 6px 10px;
             border-top: 1px solid var(--border);
-            gap: 8px;
+            gap: 6px;
             justify-content: center;
-            background: rgba(15, 23, 42, 0.5);
-            border-bottom-left-radius: 12px;
-            border-bottom-right-radius: 12px;
+            background: rgba(15, 23, 42, 0.4);
         }
 
         .emoji-btn {
             background: #334155;
             border: none;
-            font-size: 20px;
-            padding: 6px 10px;
-            border-radius: 8px;
+            font-size: 18px;
+            padding: 4px 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: transform 0.2s, background 0.2s;
         }
@@ -279,6 +277,34 @@
         .emoji-btn:hover {
             background: var(--accent);
             transform: scale(1.15);
+        }
+
+        /* Text Input Area */
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid var(--border);
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 14px;
+            letter-spacing: normal;
+            text-align: left;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--accent);
         }
 
         /* Fullscreen Floating Emoji Animation Container */
@@ -325,7 +351,7 @@
             }
             .chat-section {
                 max-width: 100%;
-                height: 280px;
+                height: 320px;
             }
         }
     </style>
@@ -368,10 +394,12 @@
             </div>
         </div>
 
-        <!-- Chat & Emoji Section -->
+        <!-- Chat, Emoji & Text Input Section -->
         <div class="chat-section">
-            <div class="chat-header">Live Reactions & Chat</div>
+            <div class="chat-header">Live Chat & Reactions</div>
             <div id="chat-messages" class="chat-messages"></div>
+            
+            <!-- Quick Emoji Bar -->
             <div class="emoji-bar">
                 <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
                 <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
@@ -379,6 +407,12 @@
                 <button class="emoji-btn" onclick="sendEmoji('👍')">👍</button>
                 <button class="emoji-btn" onclick="sendEmoji('🎉')">🎉</button>
                 <button class="emoji-btn" onclick="sendEmoji('😍')">😍</button>
+            </div>
+
+            <!-- Text Message Input Area -->
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()">Send</button>
             </div>
         </div>
     </div>
@@ -477,7 +511,6 @@
             if (data === '__DISCONNECT__') {
                 triggerDisconnect(false); 
             } else if (typeof data === 'object' && data.type === 'emoji') {
-                // ইমোজি রিসিভ হলে অ্যানিমেশন এবং চ্যাটে দেখাবে
                 triggerEmojiAnimation(data.emoji);
                 appendMessage(`${data.emoji}`, 'incoming');
             } else {
@@ -529,7 +562,6 @@
         }
     }
 
-    // Switch between Front and Back camera
     async function switchCamera() {
         if (!isCameraOn) return;
         usingFrontCamera = !usingFrontCamera;
@@ -569,6 +601,25 @@
         }
     }
 
+    // Text Message Send Functions
+    function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (conn && conn.open) {
+            conn.send(message);
+            appendMessage(message, 'outgoing');
+            input.value = '';
+        } else {
+            alert('Not connected to any user yet!');
+        }
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
     // Emoji Send & Fullscreen Animation Function (4 Seconds)
     function sendEmoji(emoji) {
         if (conn && conn.open) {
@@ -583,19 +634,16 @@
     function triggerEmojiAnimation(emoji) {
         const overlay = document.getElementById('animation-overlay');
         
-        // একসাথে কয়েকটি ইমোজি স্ক্রিনে ভাসানোর জন্য লুপ
         for (let i = 0; i < 5; i++) {
             const el = document.createElement('div');
             el.className = 'floating-emoji';
             el.innerText = emoji;
             
-            // র‍্যান্ডম হরাইজন্টাল পজিশন
             el.style.left = Math.random() * 80 + 10 + 'vw';
-            el.style.animationDuration = (3 + Math.random()) + 's'; // প্রায় ৪ সেকেন্ড স্থায়ী হবে
+            el.style.animationDuration = (3 + Math.random()) + 's';
             
             overlay.appendChild(el);
 
-            // ৪ সেকেন্ড পর এলিমেন্ট ডিলিট হয়ে যাবে
             setTimeout(() => {
                 el.remove();
             }, 4000);
