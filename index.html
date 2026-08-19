@@ -215,8 +215,6 @@
             display: flex;
             flex-direction: column;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            height: auto;
-            max-height: 75vh;
         }
 
         .chat-header {
@@ -227,14 +225,29 @@
             color: var(--text-muted);
         }
 
+        /* এখানে চ্যাট বক্সের উচ্চতা এমনভাবে রাখা হয়েছে যাতে সর্বোচ্চ প্রায় ৬টি লাইন দেখা যায় এবং বাকি মেসেজ দেখতে স্ক্রল করতে হয় */
         .chat-messages {
-            flex: 1;
+            height: 160px; 
+            max-height: 160px;
             padding: 10px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 8px;
             font-size: 13px;
+            scroll-behavior: smooth;
+        }
+
+        /* কাস্টম স্ক্রলবার ডিজাইন */
+        .chat-messages::-webkit-scrollbar {
+            width: 5px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
         }
 
         .message {
@@ -254,7 +267,6 @@
             align-self: flex-end;
         }
 
-        /* Emoji Quick Bar */
         .emoji-bar {
             display: flex;
             padding: 6px 10px;
@@ -279,7 +291,6 @@
             transform: scale(1.15);
         }
 
-        /* Text Input Area */
         .chat-input-area {
             display: flex;
             padding: 10px;
@@ -307,7 +318,6 @@
             border-color: var(--accent);
         }
 
-        /* Fullscreen Floating Emoji Animation Container */
         #animation-overlay {
             position: fixed;
             top: 0;
@@ -344,21 +354,15 @@
             animation: floatUp 4s ease-in-out forwards;
         }
 
-        /* Responsive Breakpoints */
         @media (max-width: 900px) {
             .main-layout {
                 flex-direction: column;
-            }
-            .chat-section {
-                max-width: 100%;
-                height: 320px;
             }
         }
     </style>
 </head>
 <body>
 
-    <!-- Animation Overlay -->
     <div id="animation-overlay"></div>
 
     <h2>Secure P2P Video & Chat Portal</h2>
@@ -374,7 +378,6 @@
     </div>
 
     <div class="main-layout">
-        <!-- Video & Controls Section -->
         <div class="video-section">
             <div class="video-grid">
                 <div class="video-box">
@@ -394,12 +397,10 @@
             </div>
         </div>
 
-        <!-- Chat, Emoji & Text Input Section -->
         <div class="chat-section">
             <div class="chat-header">Live Chat & Reactions</div>
             <div id="chat-messages" class="chat-messages"></div>
             
-            <!-- Quick Emoji Bar -->
             <div class="emoji-bar">
                 <button class="emoji-btn" onclick="sendEmoji('❤️')">❤️</button>
                 <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
@@ -409,7 +410,6 @@
                 <button class="emoji-btn" onclick="sendEmoji('😍')">😍</button>
             </div>
 
-            <!-- Text Message Input Area -->
             <div class="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
                 <button onclick="sendMessage()">Send</button>
@@ -424,7 +424,6 @@
     let currentCall = null;
     let isCameraOn = false;
     let isMicMuted = false;
-    let isConnected = false;
     let usingFrontCamera = true;
 
     function generate4DigitCode() {
@@ -442,14 +441,13 @@
 
     peer.on('call', (call) => {
         currentCall = call;
-        answerCall(call);
+        answerIncomingCall(call);
     });
 
     peer.on('connection', (connection) => {
         conn = connection;
         setupConnectionEvents();
         lockUIOnConnect();
-        isConnected = true;
     });
 
     function connectToPeer() {
@@ -462,11 +460,13 @@
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        getAudioOrVideo().then(stream => {
+        ensureLocalStream().then(stream => {
             currentCall = peer.call(remoteId, stream);
+            
             currentCall.on('stream', (remoteStream) => {
-                document.getElementById('remote-video').srcObject = remoteStream;
-                isConnected = true;
+                const remoteVideo = document.getElementById('remote-video');
+                remoteVideo.srcObject = remoteStream;
+                remoteVideo.play().catch(e => console.log("Play error:", e));
             });
             
             currentCall.on('close', () => {
@@ -475,12 +475,14 @@
         });
     }
 
-    function answerCall(call) {
-        getAudioOrVideo().then(stream => {
+    function answerIncomingCall(call) {
+        ensureLocalStream().then(stream => {
             call.answer(stream);
+            
             call.on('stream', (remoteStream) => {
-                document.getElementById('remote-video').srcObject = remoteStream;
-                isConnected = true;
+                const remoteVideo = document.getElementById('remote-video');
+                remoteVideo.srcObject = remoteStream;
+                remoteVideo.play().catch(e => console.log("Play error:", e));
             });
 
             call.on('close', () => {
@@ -499,10 +501,20 @@
         remoteInput.disabled = true;
     }
 
-    function getAudioOrVideo() {
+    function ensureLocalStream() {
         if (localStream) return Promise.resolve(localStream);
-        return navigator.mediaDevices.getUserMedia({ video: false, audio: true }).catch(() => {
-            return new MediaStream();
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+            localStream = stream;
+            document.getElementById('local-video').srcObject = stream;
+            isCameraOn = true;
+            const camBtn = document.getElementById('cam-btn');
+            camBtn.innerText = "Turn Off Cam";
+            camBtn.classList.add('active');
+            document.getElementById('mic-btn').disabled = false;
+            document.getElementById('switch-cam-btn').disabled = false;
+            return stream;
+        }).catch(() => {
+            return navigator.mediaDevices.getUserMedia({ video: false, audio: true }).catch(() => new MediaStream());
         });
     }
 
@@ -523,7 +535,6 @@
         });
     }
 
-    // Camera Toggle & Switch Logic
     async function toggleCamera() {
         const camBtn = document.getElementById('cam-btn');
         const micBtn = document.getElementById('mic-btn');
@@ -584,6 +595,7 @@
     }
 
     function updateStreamInCall() {
+        if (!currentCall || !currentCall.peerConnection) return;
         const videoTrack = localStream.getVideoTracks()[0];
         const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === videoTrack.kind);
         if (sender) sender.replaceTrack(videoTrack);
@@ -601,7 +613,6 @@
         }
     }
 
-    // Text Message Send Functions
     function sendMessage() {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
@@ -620,7 +631,6 @@
         if (e.key === 'Enter') sendMessage();
     }
 
-    // Emoji Send & Fullscreen Animation Function (4 Seconds)
     function sendEmoji(emoji) {
         if (conn && conn.open) {
             conn.send({ type: 'emoji', emoji: emoji });
