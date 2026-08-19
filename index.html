@@ -215,32 +215,32 @@
             display: flex;
             flex-direction: column;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
         }
 
         .chat-header {
-            padding: 10px 15px;
+            padding: 8px 12px;
             border-bottom: 1px solid var(--border);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text-muted);
         }
 
-        /* এখানে চ্যাট বক্সের উচ্চতা এমনভাবে রাখা হয়েছে যাতে সর্বোচ্চ প্রায় ৬টি লাইন দেখা যায় এবং বাকি মেসেজ দেখতে স্ক্রল করতে হয় */
         .chat-messages {
-            height: 160px; 
-            max-height: 160px;
-            padding: 10px;
+            height: 150px; 
+            max-height: 150px;
+            padding: 8px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             font-size: 13px;
             scroll-behavior: smooth;
         }
 
         /* কাস্টম স্ক্রলবার ডিজাইন */
         .chat-messages::-webkit-scrollbar {
-            width: 5px;
+            width: 4px;
         }
         .chat-messages::-webkit-scrollbar-track {
             background: rgba(15, 23, 42, 0.3);
@@ -251,8 +251,8 @@
         }
 
         .message {
-            padding: 6px 10px;
-            border-radius: 8px;
+            padding: 5px 8px;
+            border-radius: 6px;
             max-width: 80%;
             word-break: break-word;
         }
@@ -269,9 +269,9 @@
 
         .emoji-bar {
             display: flex;
-            padding: 6px 10px;
+            padding: 5px 8px;
             border-top: 1px solid var(--border);
-            gap: 6px;
+            gap: 4px;
             justify-content: center;
             background: rgba(15, 23, 42, 0.4);
         }
@@ -279,24 +279,25 @@
         .emoji-btn {
             background: #334155;
             border: none;
-            font-size: 18px;
-            padding: 4px 8px;
-            border-radius: 6px;
+            font-size: 16px;
+            padding: 2px 6px;
+            border-radius: 4px;
             cursor: pointer;
             transition: transform 0.2s, background 0.2s;
         }
 
         .emoji-btn:hover {
             background: var(--accent);
-            transform: scale(1.15);
+            transform: scale(1.1);
         }
 
         .chat-input-area {
             display: flex;
-            padding: 10px;
+            padding: 8px;
             border-top: 1px solid var(--border);
             gap: 6px;
             background: rgba(15, 23, 42, 0.6);
+            align-items: center;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
         }
@@ -306,16 +307,23 @@
             background: rgba(15, 23, 42, 0.8);
             border: 1px solid var(--border);
             color: var(--text-main);
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
             outline: none;
-            font-size: 14px;
+            font-size: 13px;
             letter-spacing: normal;
             text-align: left;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .chat-input-area input:focus {
             border-color: var(--accent);
+        }
+
+        .chat-input-area button {
+            padding: 6px 12px;
+            font-size: 13px;
         }
 
         #animation-overlay {
@@ -441,7 +449,10 @@
 
     peer.on('call', (call) => {
         currentCall = call;
-        answerIncomingCall(call);
+        ensureLocalStream().then(stream => {
+            call.answer(stream);
+            setupCallEvents(call);
+        });
     });
 
     peer.on('connection', (connection) => {
@@ -462,32 +473,19 @@
 
         ensureLocalStream().then(stream => {
             currentCall = peer.call(remoteId, stream);
-            
-            currentCall.on('stream', (remoteStream) => {
-                const remoteVideo = document.getElementById('remote-video');
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.play().catch(e => console.log("Play error:", e));
-            });
-            
-            currentCall.on('close', () => {
-                triggerDisconnect(false);
-            });
+            setupCallEvents(currentCall);
         });
     }
 
-    function answerIncomingCall(call) {
-        ensureLocalStream().then(stream => {
-            call.answer(stream);
-            
-            call.on('stream', (remoteStream) => {
-                const remoteVideo = document.getElementById('remote-video');
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.play().catch(e => console.log("Play error:", e));
-            });
-
-            call.on('close', () => {
-                triggerDisconnect(false);
-            });
+    function setupCallEvents(call) {
+        call.on('stream', (remoteStream) => {
+            const remoteVideo = document.getElementById('remote-video');
+            remoteVideo.srcObject = remoteStream;
+            remoteVideo.play().catch(e => console.log("Remote video play error:", e));
+        });
+        
+        call.on('close', () => {
+            triggerDisconnect(false);
         });
     }
 
@@ -503,19 +501,34 @@
 
     function ensureLocalStream() {
         if (localStream) return Promise.resolve(localStream);
-        return navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        return navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true }).then(stream => {
             localStream = stream;
-            document.getElementById('local-video').srcObject = stream;
+            const localVideo = document.getElementById('local-video');
+            localVideo.srcObject = stream;
+            localVideo.play().catch(e => console.log("Local video play error:", e));
+            
             isCameraOn = true;
             const camBtn = document.getElementById('cam-btn');
             camBtn.innerText = "Turn Off Cam";
             camBtn.classList.add('active');
+            
+            updateCameraLabel(true);
+
             document.getElementById('mic-btn').disabled = false;
             document.getElementById('switch-cam-btn').disabled = false;
             return stream;
-        }).catch(() => {
+        }).catch((err) => {
+            console.warn("Media error, falling back to audio/empty:", err);
             return navigator.mediaDevices.getUserMedia({ video: false, audio: true }).catch(() => new MediaStream());
         });
+    }
+
+    function updateCameraLabel(isOn) {
+        const localVideoContainer = document.getElementById('local-video').parentElement;
+        const label = localVideoContainer.querySelector('.label');
+        if (label) {
+            label.innerText = isOn ? "My Camera (On)" : "My Camera (Off)";
+        }
     }
 
     function setupConnectionEvents() {
@@ -546,10 +559,15 @@
                     video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, 
                     audio: true 
                 });
-                document.getElementById('local-video').srcObject = localStream;
+                const localVideo = document.getElementById('local-video');
+                localVideo.srcObject = localStream;
+                localVideo.play();
+                
                 isCameraOn = true;
                 camBtn.innerText = "Turn Off Cam";
                 camBtn.classList.add('active');
+                updateCameraLabel(true);
+
                 micBtn.disabled = false;
                 switchBtn.disabled = false;
 
@@ -565,6 +583,8 @@
             isCameraOn = false;
             camBtn.innerText = "Turn On Cam";
             camBtn.classList.remove('active');
+            updateCameraLabel(false);
+
             micBtn.disabled = true;
             switchBtn.disabled = true;
             micBtn.classList.remove('active');
@@ -584,7 +604,9 @@
                 video: { facingMode: usingFrontCamera ? 'user' : 'environment' }, 
                 audio: true 
             });
-            document.getElementById('local-video').srcObject = localStream;
+            const localVideo = document.getElementById('local-video');
+            localVideo.srcObject = localStream;
+            localVideo.play();
 
             if (currentCall) {
                 updateStreamInCall();
