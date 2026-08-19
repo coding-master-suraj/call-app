@@ -69,7 +69,8 @@
             color: var(--accent);
             font-weight: bold;
             font-family: monospace;
-            font-size: clamp(1rem, 2.2vw, 1.1rem);
+            font-size: clamp(1.1rem, 2.2vw, 1.3rem);
+            letter-spacing: 2px;
             background: rgba(99, 102, 241, 0.1);
             padding: 4px 8px;
             border-radius: 4px;
@@ -91,7 +92,9 @@
             padding: 8px 12px;
             border-radius: 6px;
             outline: none;
-            font-size: 14px;
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-align: center;
             flex: 1;
             min-width: 150px;
         }
@@ -260,6 +263,8 @@
 
         .chat-input-area input {
             flex: 1;
+            letter-spacing: normal;
+            text-align: left;
         }
 
         /* Responsive Breakpoints for Tablet & Mobile */
@@ -303,10 +308,10 @@
     <!-- Setup & Connection Card -->
     <div class="setup-card">
         <div class="code-box">
-            Your Code: <span id="my-code-display">Loading...</span>
+            Your Code: <span id="my-code-display">----</span>
         </div>
         <div class="connect-box">
-            <input type="text" id="remote-code-input" placeholder="Enter partner code">
+            <input type="text" id="remote-code-input" maxlength="4" placeholder="Enter 4-digit code">
             <button onclick="connectToPeer()">Connect</button>
         </div>
     </div>
@@ -351,15 +356,15 @@
     let isMicMuted = false;
     let isConnected = false;
 
-    // Generate Unique Code on Refresh
-    function generateRandomCode() {
-        return Math.random().toString(4).substring(1, 3);
+    // Generate 4-Digit Unique Code on Refresh
+    function generate4DigitCode() {
+        return Math.floor(1000 + Math.random() * 9000).toString();
     }
 
-    const myId = generateRandomCode();
+    const myId = generate4DigitCode();
     document.getElementById('my-code-display').innerText = myId;
 
-    // Initialize PeerJS
+    // Initialize PeerJS with 4-digit ID
     peer = new Peer(myId);
 
     peer.on('open', (id) => {
@@ -381,7 +386,7 @@
 
     function connectToPeer() {
         const remoteId = document.getElementById('remote-code-input').value.trim();
-        if (!remoteId) return alert('Please enter a valid code!');
+        if (remoteId.length !== 4) return alert('Please enter a valid 4-digit code!');
         if (remoteId === myId) return alert('You cannot connect to yourself!');
 
         // Setup chat connection
@@ -518,7 +523,6 @@
         if (sendSignal && conn && conn.open) {
             conn.send('__DISCONNECT__');
         }
-        // পেজ রিফ্রেশ করার আগে সামান্য ডিলে বা অ্যালার্ট দেওয়া হয়েছে যাতে ইউজার বুঝতে পারে
         setTimeout(() => {
             window.location.reload();
         }, 500);
