@@ -14,6 +14,8 @@
             --accent-hover: #4f46e5;
             --danger: #ef4444;
             --danger-hover: #dc2626;
+            --success: #22c55e;
+            --success-hover: #16a34a;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --border: rgba(255, 255, 255, 0.1);
@@ -324,6 +326,74 @@
             font-size: 13px;
         }
 
+        /* Incoming Call Modal Popup */
+        #call-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            max-width: 320px;
+            width: 100%;
+            animation: popUp 0.3s ease-out;
+        }
+
+        @keyframes popUp {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+            color: var(--text-main);
+            font-size: 1.4rem;
+        }
+
+        .modal-content p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-accept {
+            background: var(--success);
+            padding: 10px 20px;
+            font-size: 1rem;
+        }
+        .btn-accept:hover {
+            background: var(--success-hover);
+        }
+
+        .btn-reject {
+            background: var(--danger);
+            padding: 10px 20px;
+            font-size: 1rem;
+        }
+        .btn-reject:hover {
+            background: var(--danger-hover);
+        }
+
         #animation-overlay {
             position: fixed;
             top: 0;
@@ -336,22 +406,10 @@
         }
 
         @keyframes floatUp {
-            0% {
-                transform: translateY(100vh) scale(0.5);
-                opacity: 0;
-            }
-            20% {
-                opacity: 1;
-                transform: translateY(70vh) scale(1.5);
-            }
-            80% {
-                opacity: 1;
-                transform: translateY(30vh) scale(2);
-            }
-            100% {
-                transform: translateY(-10vh) scale(2.5);
-                opacity: 0;
-            }
+            0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+            20% { opacity: 1; transform: translateY(70vh) scale(1.5); }
+            80% { opacity: 1; transform: translateY(30vh) scale(2); }
+            100% { transform: translateY(-10vh) scale(2.5); opacity: 0; }
         }
 
         .floating-emoji {
@@ -373,6 +431,18 @@
 <body>
 
     <div id="animation-overlay"></div>
+
+    <!-- Call Notification Modal -->
+    <div id="call-modal">
+        <div class="modal-content">
+            <h3>Incoming Video Call</h3>
+            <p>Code: <span id="caller-id-display" style="color: var(--accent); font-weight: bold;">----</span></p>
+            <div class="modal-buttons">
+                <button class="btn-reject" onclick="rejectCall()">Reject</button>
+                <button class="btn-accept" onclick="acceptCall()">Accept</button>
+            </div>
+        </div>
+    </div>
 
     <h2>Secure P2P Video & Chat Portal</h2>
     
@@ -431,6 +501,7 @@
     let peer = null;
     let conn = null;
     let currentCall = null;
+    let pendingCall = null;
     let isCameraOn = false;
     let isMicMuted = false;
     let usingFrontCamera = true;
@@ -455,19 +526,37 @@
         console.log('My Peer ID:', id);
     });
 
-    // কল আসলে অটো রিসিভ করে নিজের স্ট্রিম পাঠানো নিশ্চিত করা
-    peer.on('call', async (call) => {
-        const stream = await ensureLocalStream();
-        call.answer(stream);
-        setupCallEvents(call);
-        lockUIOnConnect();
+    // কেউ কল করলে সাথে সাথে পপ-আপ নোটিফিকেশন দেখাবে
+    peer.on('call', (call) => {
+        pendingCall = call;
+        document.getElementById('caller-id-display').innerText = call.peer;
+        document.getElementById('call-modal').style.display = 'flex';
     });
 
     peer.on('connection', (connection) => {
         conn = connection;
         setupConnectionEvents();
-        lockUIOnConnect();
     });
+
+    // Accept বাটনে ক্লিক করলে
+    async function acceptCall() {
+        document.getElementById('call-modal').style.display = 'none';
+        if (!pendingCall) return;
+
+        const stream = await ensureLocalStream();
+        pendingCall.answer(stream);
+        setupCallEvents(pendingCall);
+        lockUIOnConnect();
+    }
+
+    // Reject বাটনে ক্লিক করলে
+    function rejectCall() {
+        document.getElementById('call-modal').style.display = 'none';
+        if (pendingCall) {
+            pendingCall.close();
+            pendingCall = null;
+        }
+    }
 
     async function connectToPeer() {
         const remoteId = document.getElementById('remote-code-input').value.trim();
@@ -480,7 +569,7 @@
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        // ভিডিও স্ট্রিম নিয়ে কল ইনিশিয়েট করা
+        // ভিডিও কল পাঠানো
         const stream = await ensureLocalStream();
         const call = peer.call(remoteId, stream);
         setupCallEvents(call);
@@ -493,11 +582,9 @@
             const remoteVideo = document.getElementById('remote-video');
             remoteVideo.srcObject = remoteStream;
             
-            // ব্রাউজার পলিসি বাইপাস করে ভিডিও প্লে করার চেষ্টা
             let playPromise = remoteVideo.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
-                    console.log("Autoplay blocked, enabling click listener to play.");
                     document.body.addEventListener('click', () => {
                         remoteVideo.play();
                     }, { once: true });
@@ -541,8 +628,7 @@
             document.getElementById('switch-cam-btn').disabled = false;
             return localStream;
         } catch (err) {
-            console.warn("Camera/Mic error, generating fallback empty stream:", err);
-            // অডিও-ভিডিও ফেইল করলে ব্ল্যাংক স্ট্রিম তৈরি করবে যাতে কল ক্র্যাশ না করে
+            console.warn("Camera/Mic error:", err);
             const canvas = document.createElement('canvas');
             canvas.width = 640; canvas.height = 480;
             const ctx = canvas.getContext('2d');
@@ -697,7 +783,7 @@
     function sendEmoji(emoji) {
         if (conn && conn.open) {
             conn.send({ type: 'emoji', emoji: emoji });
-            triggerEmojiAnalytics(emoji);
+            triggerEmojiAnimation(emoji);
             appendMessage(`${emoji}`, 'outgoing');
         } else {
             alert('Not connected to any partner yet!');
