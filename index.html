@@ -133,14 +133,20 @@
 
     <div class="card">
         <!-- ১. পাসওয়ার্ড প্রোটেকশন স্ক্রিন -->
-        <div id="login-screen">
-            <h2>🔒 সিকিউরিটি ভেরিফিকেশন</h2>
-            <p>গুগল স্ক্রিপ্ট দ্বারা সুরক্ষিত ভিডিও কল অ্যাপ</p>
-            <input type="password" id="pass-input" placeholder="পাসওয়ার্ড লিখুন">
-            <br>
-            <button onclick="verifyPassword()">ভেরিফাই করুন</button>
-            <div id="error-box" class="error-msg"></div>
-        </div>
+<!-- ১. পাসওয়ার্ড প্রোটেকশন স্ক্রিন -->
+<div id="login-screen">
+    <h2>🔒 সিকিউরিটি ভেরিফিকেশন</h2>
+    <p>গুগল স্ক্রিপ্ট দ্বারা সুরক্ষিত ভিডিও কল অ্যাপ</p>
+    
+    <!-- পাসওয়ার্ড ইনপুট বক্স -->
+    <input type="password" id="pass-input" placeholder="পাসওয়ার্ড লিখুন">
+    <br>
+    
+    <!-- ভেরিফাই বাটন (এখানে id="verify-btn" দেওয়া হয়েছে) -->
+    <button id="verify-btn" onclick="verifyPassword()">ভেরিফাই করুন</button>
+    
+    <div id="error-box" class="error-msg"></div>
+</div>
 
         <!-- ২. মেইন ভিডিও কল অ্যাপ স্ক্রিন -->
         <div id="app-screen">
