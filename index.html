@@ -443,28 +443,37 @@
     const myId = generate4DigitCode();
     document.getElementById('my-code-display').innerText = myId;
 
-    peer = new Peer(myId);
+    // ফ্রি পাবলিক STUN সার্ভার যুক্ত করা হয়েছে যাতে যেকোনো নেটওয়ার্ক থেকে ভিডিও কানেক্ট হতে পারে
+    peer = new Peer(myId, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    });
 
     peer.on('open', (id) => {
         console.log('Connected with ID:', id);
     });
 
-    // কেউ কল করলে সাথে সাথে নিজের স্ট্রিম দিয়ে এনসার করা এবং স্ট্রিম রিসিভ হ্যান্ডেল সেট করা
-    peer.on('call', (call) => {
-        ensureLocalStream().then(stream => {
-            call.answer(stream);
-            setupCallEvents(call);
-        });
+    // কেউ কল করলে সাথে সাথে ক্যামেরা অন করে অটোমেটিক ব্যাক কল বা অ্যানসার করা হবে
+    peer.on('call', async (call) => {
+        console.log("Incoming call received...");
+        const stream = await ensureLocalStream();
+        call.answer(stream);
+        setupCallEvents(call);
         lockUIOnConnect();
     });
 
     peer.on('connection', (connection) => {
+        console.log("Incoming data connection...");
         conn = connection;
         setupConnectionEvents();
         lockUIOnConnect();
     });
 
-    function connectToPeer() {
+    async function connectToPeer() {
         const remoteId = document.getElementById('remote-code-input').value.trim();
         if (remoteId.length !== 4) return alert('Please enter a valid 4-digit code!');
         if (remoteId === myId) return alert('You cannot connect to yourself!');
@@ -475,23 +484,24 @@
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        // ভিডিও কল ইনিশিয়েট করা
-        ensureLocalStream().then(stream => {
-            const call = peer.call(remoteId, stream);
-            setupCallEvents(call);
-        });
+        // ভিডিও স্ট্রিম নিশ্চিত করে অপরপক্ষকে কল পাঠানো
+        const stream = await ensureLocalStream();
+        const call = peer.call(remoteId, stream);
+        setupCallEvents(call);
     }
 
     function setupCallEvents(call) {
         currentCall = call;
+        
         call.on('stream', (remoteStream) => {
+            console.log("Remote stream received successfully!");
             const remoteVideo = document.getElementById('remote-video');
             remoteVideo.srcObject = remoteStream;
             
             remoteVideo.play().then(() => {
-                console.log("Remote video started playing");
+                console.log("Remote video playing smoothly.");
             }).catch(e => {
-                console.log("Autoplay prevented, waiting for user interaction:", e);
+                console.log("Autoplay blocked, waiting for user click:", e);
                 document.addEventListener('click', () => {
                     remoteVideo.play();
                 }, { once: true });
@@ -499,6 +509,7 @@
         });
         
         call.on('close', () => {
+            console.log("Call closed.");
             triggerDisconnect(false);
         });
     }
