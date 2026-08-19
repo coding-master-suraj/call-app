@@ -71,15 +71,8 @@
             cursor: not-allowed;
         }
 
-        /* Login Screen Specific */
-        #login-screen {
-            display: block;
-        }
-
-        /* App Screen Specific */
-        #app-screen {
-            display: none;
-        }
+        #login-screen { display: block; }
+        #app-screen { display: none; }
 
         .video-container {
             display: flex;
@@ -103,7 +96,7 @@
             height: 250px;
             object-fit: cover;
             background: #111;
-            transform: scaleX(-1); /* মিরর ইফেক্ট */
+            transform: scaleX(-1);
         }
 
         .video-box p {
@@ -177,10 +170,9 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
     <script>
-        // আপনার গুগল স্ক্রিপ্ট ওয়েব অ্যাপ ইউআরএল
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpeu1RCUEawElIJedCXoyoPKv987iq26IeDVmTB2WXpswkh30guwP_NpMpebIpSbhT/exec";
+        // এখানে আপনার নতুন গুগল স্ক্রিপ্ট ওয়েব অ্যাপ ইউআরএল বসাবেন
+        const SCRIPT_URL = "YOUR_NEW_WEB_APP_URL_HERE";
 
-        // পাসওয়ার্ড ভেরিফিকেশন লজিক (লক ফিচার সহ)
         function verifyPassword() {
             const passInput = document.getElementById("pass-input");
             const verifyBtn = document.getElementById("verify-btn");
@@ -192,93 +184,72 @@
                 return;
             }
 
-            // ভেরিফাই ক্লিক করার সাথে সাথে ইনপুট ও বাটন ডিজেবল (লক) করা
             passInput.disabled = true;
             verifyBtn.disabled = true;
             verifyBtn.innerText = "যাচাই করা হচ্ছে...";
             errorBox.innerText = "";
 
-            // গুগল স্ক্রিপ্টে পাসওয়ার্ড পাঠানো
+            // ফেচ রিকোয়েস্ট পাঠানো
             fetch(SCRIPT_URL + "?pass=" + encodeURIComponent(enteredPass))
-                .then(res => res.json())
+                .then(response => response.json())
                 .then(data => {
                     if (data.status === "success") {
                         document.getElementById("login-screen").style.display = "none";
                         document.getElementById("app-screen").style.display = "block";
-                        
-                        // স্ক্রিপ্ট থেকে আসা ইউনিক আইডি সেট করা
                         document.getElementById("my-id").innerText = data.uniqueId;
-                        
-                        // ভিডিও কল ফাংশন শুরু হবে
                         initVideoCall();
                     } else {
-                        // পাসওয়ার্ড ভুল হলে আবার ইনপুট ও বাটন আনলক করে দেওয়া
                         passInput.disabled = false;
                         verifyBtn.disabled = false;
                         verifyBtn.innerText = "ভেরিফাই করুন";
                         errorBox.innerText = data.message;
                     }
                 })
-                .catch(err => {
-                    // কোনো এরর হলে আবার আনলক করা
+                .catch(error => {
                     passInput.disabled = false;
                     verifyBtn.disabled = false;
                     verifyBtn.innerText = "ভেরিফাই করুন";
                     errorBox.innerText = "কানেকশন এরর! আবার চেষ্টা করুন।";
-                    console.error(err);
+                    console.error("Error:", error);
                 });
         }
 
-        // ভিডিও কল এবং WebRTC লজিক
         function initVideoCall() {
             const peer = new Peer();
-
             let localStream;
-            let currentCall;
 
             const localVideo = document.getElementById('local-video');
             const remoteVideo = document.getElementById('remote-video');
             const callIdInput = document.getElementById('call-id-input');
             const callBtn = document.getElementById('call-btn');
 
-            // ক্যামেরা ও মাইক্রোফোনের পারমিশন নেওয়া
             navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 .then(stream => {
                     localStream = stream;
                     localVideo.srcObject = stream;
                 })
                 .catch(error => {
-                    console.error("ক্যামেরা বা মাইক অ্যাক্সেস ত্রুটি: ", error);
+                    console.error("ক্যামেরা ত্রুটি: ", error);
                     alert("দয়া করে ক্যামেরা ও মাইক্রোফোনের পারমিশন দিন!");
                 });
 
-            // অন্য প্রান্ত থেকে কল আসলে রিসিভ করা
             peer.on('call', call => {
-                currentCall = call;
                 call.answer(localStream);
-                
                 call.on('stream', remoteStream => {
                     remoteVideo.srcObject = remoteStream;
                 });
             });
 
-            // কল বাটনে ক্লিক করলে অন্য কাউকে কল করা
             callBtn.addEventListener('click', () => {
                 const remoteId = callIdInput.value.trim();
                 if (!remoteId) {
-                    alert("দয়া করে যার সাথে কল করতে চান তার আইডি দিন।");
+                    alert("দয়া করে আইডি দিন!");
                     return;
                 }
 
                 const call = peer.call(remoteId, localStream);
-                currentCall = call;
-
                 call.on('stream', remoteStream => {
                     remoteVideo.srcObject = remoteStream;
-                });
-
-                call.on('close', () => {
-                    alert("কলটি কেটে গেছে।");
                 });
             });
         }
