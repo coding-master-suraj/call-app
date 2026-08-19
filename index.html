@@ -578,6 +578,9 @@
         </div>
     </div>
 
+    <!-- Hidden audio element for handling remote audio playback safely -->
+    <audio id="remote-audio" autoplay></audio>
+
 <script>
     let localStream = null;
     let peer = null;
@@ -668,7 +671,6 @@
         const remoteBox = document.getElementById('remote-box-wrapper');
 
         if (mode === 'audio') {
-            // অডিও মোডে নিজের এবং পার্টনারের দুটি ভিডিও বক্সই হাইড করা থাকবে, কারণ এটি শুধুমাত্র ভয়েস কল
             localBox.style.display = 'none';
             remoteBox.style.display = 'none';
             
@@ -676,7 +678,6 @@
                 <button id="mic-btn" onclick="toggleMic()">Mute Mic</button>
             `;
         } else {
-            // ভিডিও মোডে দুটি ভিডিও বক্স এবং সব কন্ট্রোল অন থাকবে
             localBox.style.display = 'flex';
             remoteBox.style.display = 'flex';
             remoteBox.style.aspectRatio = '16/9';
@@ -705,6 +706,15 @@
                         }, { once: true });
                     });
                 }
+            } else {
+                const remoteAudio = document.getElementById('remote-audio');
+                remoteAudio.srcObject = remoteStream;
+                remoteAudio.play().catch(err => {
+                    console.log("Audio autoplay restricted, waiting for interaction");
+                    document.body.addEventListener('click', () => {
+                        remoteAudio.play();
+                    }, { once: true });
+                });
             }
         });
         
@@ -743,23 +753,8 @@
             return localStream;
         } catch (err) {
             console.warn("Camera/Mic error:", err);
-            const canvas = document.createElement('canvas');
-            canvas.width = 640; canvas.height = 480;
-            let fakeStream = canvas.captureStream(10);
-            
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const dst = oscillator.connect(audioCtx.createMediaStreamDestination());
-                oscillator.start();
-                fakeStream.addTrack(dst.stream.getAudioTracks()[0]);
-            } catch(e) {}
-
-            localStream = fakeStream;
-            if(!audioOnly) {
-                document.getElementById('local-video').srcObject = localStream;
-            }
-            return localStream;
+            alert("Microphone permission is required for audio/video calls!");
+            throw err;
         }
     }
 
