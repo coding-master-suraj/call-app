@@ -3,256 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Video & Audio Call App</title>
+    <title>WebRTC Video & Chat Call</title>
+    <!-- PeerJS CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --primary-color: #007bff;
-            --primary-hover: #0056b3;
-            --bg-color: #f0f2f5;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .card {
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px;
-            box-sizing: border-box;
-            text-align: center;
-        }
-
-        h2, h3 {
-            color: var(--text-color);
-            margin-top: 0;
-        }
-
-        input, button {
-            padding: 12px 15px;
-            font-size: 16px;
-            margin: 8px 5px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            outline: none;
-        }
-
-        input {
-            width: 60%;
-            max-width: 300px;
-        }
-
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-
-        #login-screen { display: block; }
-        #app-screen { display: none; }
-
-        .video-container {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            margin-top: 20px;
-            gap: 15px;
-        }
-
-        .video-box {
-            flex: 1;
-            min-width: 300px;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        video {
-            width: 100%;
-            height: 250px;
-            object-fit: cover;
-            background: #111;
-            transform: scaleX(-1);
-        }
-
-        .video-box p {
-            position: absolute;
-            bottom: 5px;
-            left: 10px;
-            color: white;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-            margin: 0;
-        }
-
-        #my-id {
-            font-weight: bold;
-            color: #28a745;
-            background: #e6f4ea;
-            padding: 5px 10px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-
-        .error-msg {
-            color: #dc3545;
-            font-size: 14px;
-            margin-top: 5px;
-        }
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 10px; display: flex; flex-direction: column; height: 95vh; box-sizing: border-box; }
+        .container { display: flex; flex: 1; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
+        .video-box { position: relative; width: 45%; min-width: 300px; background: #222; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center; aspect-ratio: 4/3; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; }
+        .controls, .setup { margin: 10px 0; text-align: center; }
+        input, button { padding: 8px 12px; margin: 4px; border-radius: 4px; border: none; font-size: 14px; }
+        button { background: #007bff; color: white; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .chat-container { width: 100%; max-width: 800px; margin: 0 auto; background: #1e1e1e; border-radius: 8px; display: flex; flex-direction: column; height: 150px; }
+        .chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 14px; border-bottom: 1px solid #333; }
+        .chat-input-area { display: flex; padding: 5px; }
+        .chat-input-area input { flex: 1; background: #2a2a2a; color: white; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <!-- ১. পাসওয়ার্ড প্রোটেকশন স্ক্রিন -->
-        <div id="login-screen">
-            <h2>🔒 সিকিউরিটি ভেরিফিকেশন</h2>
-            <p>গুগল স্ক্রিপ্ট দ্বারা সুরক্ষিত ভিডিও কল অ্যাপ</p>
-            <input type="password" id="pass-input" placeholder="পাসওয়ার্ড লিখুন">
-            <br>
-            <button id="verify-btn" onclick="verifyPassword()">ভেরিফাই করুন</button>
-            <div id="error-box" class="error-msg"></div>
+    <h2 style="text-align: center; margin: 5px;">P2P Video & Chat Call</h2>
+    
+    <div class="setup">
+        <span id="my-code-display">Generating code...</span>
+        <br><br>
+        <input type="text" id="remote-code-input" placeholder="Enter other device code">
+        <button onclick="connectToPeer()">Connect</button>
+    </div>
+
+    <div class="container">
+        <div class="video-box">
+            <video id="local-video" autoplay muted playsinline></video>
+            <div class="label">My Camera (Off)</div>
         </div>
-
-        <!-- ২. মেইন ভিডিও কল অ্যাপ স্ক্রিন -->
-        <div id="app-screen">
-            <h2>🎥 সুরক্ষিত ভিডিও ও অডিও কল</h2>
-            
-            <div>
-                <p>আপনার ইউনিক আইডি: <span id="my-id">কানেক্ট হচ্ছে...</span></p>
-            </div>
-
-            <div class="controls">
-                <input type="text" id="call-id-input" placeholder="অপর ব্যক্তির আইডি দিন">
-                <button id="call-btn">কল করুন</button>
-            </div>
-
-            <div class="video-container">
-                <div class="video-box">
-                    <p>আমার ক্যামেরা</p>
-                    <video id="local-video" autoplay muted playsinline></video>
-                </div>
-                <div class="video-box">
-                    <p>অপর প্রান্তের ক্যামেরা</p>
-                    <video id="remote-video" autoplay playsinline></video>
-                </div>
-            </div>
+        <div class="video-box">
+            <video id="remote-video" autoplay playsinline></video>
+            <div class="label">Remote Camera</div>
         </div>
     </div>
 
-    <!-- PeerJS লাইব্রেরি CDN -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    
-    <script>
-        // এখানে আপনার নতুন গুগল স্ক্রিপ্ট ওয়েব অ্যাপ ইউআরএল বসাবেন
-        const SCRIPT_URL = "YOUR_NEW_WEB_APP_URL_HERE";
+    <div class="controls">
+        <button id="cam-btn" onclick="toggleCamera()">Turn On Camera</button>
+        <button id="mic-btn" onclick="toggleMic()" disabled>Mute Mic</button>
+    </div>
 
-        function verifyPassword() {
-            const passInput = document.getElementById("pass-input");
-            const verifyBtn = document.getElementById("verify-btn");
-            const errorBox = document.getElementById("error-box");
-            const enteredPass = passInput.value.trim();
+    <div class="chat-container">
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
 
-            if (!enteredPass) {
-                errorBox.innerText = "দয়া করে পাসওয়ার্ড লিখুন!";
-                return;
-            }
+<script>
+    let localStream = null;
+    let peer = null;
+    let conn = null;
+    let currentCall = null;
+    let isCameraOn = false;
+    let isMicMuted = false;
 
-            passInput.disabled = true;
-            verifyBtn.disabled = true;
-            verifyBtn.innerText = "যাচাই করা হচ্ছে...";
-            errorBox.innerText = "";
+    // Page refresh korlei random unique code generate hobe
+    function generateRandomCode() {
+        return Math.random().toString(36).substring(2, 8);
+    }
 
-            // ফেচ রিকোয়েস্ট পাঠানো
-            fetch(SCRIPT_URL + "?pass=" + encodeURIComponent(enteredPass))
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === "success") {
-                        document.getElementById("login-screen").style.display = "none";
-                        document.getElementById("app-screen").style.display = "block";
-                        document.getElementById("my-id").innerText = data.uniqueId;
-                        initVideoCall();
-                    } else {
-                        passInput.disabled = false;
-                        verifyBtn.disabled = false;
-                        verifyBtn.innerText = "ভেরিফাই করুন";
-                        errorBox.innerText = data.message;
-                    }
-                })
-                .catch(error => {
-                    passInput.disabled = false;
-                    verifyBtn.disabled = false;
-                    verifyBtn.innerText = "ভেরিফাই করুন";
-                    errorBox.innerText = "কানেকশন এরর! আবার চেষ্টা করুন।";
-                    console.error("Error:", error);
-                });
+    const myId = generateRandomCode();
+    document.getElementById('my-code-display').innerText = "Your Code: " + myId;
+
+    // PeerJS initialization
+    peer = new Peer(myId);
+
+    peer.on('open', (id) => {
+        console.log('My peer ID is: ' + id);
+    });
+
+    // Handle incoming calls
+    peer.on('call', (call) => {
+        currentCall = call;
+        if (localStream) {
+            call.answer(localStream);
+        } else {
+            // Jodi local camera on na thake, tahole empty stream ba audio diye answer korbe
+            navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
+                call.answer(stream);
+            }).catch(() => call.answer());
         }
+        
+        call.on('stream', (remoteStream) => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+        });
+    });
 
-        function initVideoCall() {
-            const peer = new Peer();
-            let localStream;
+    // Handle incoming data connections (Chat)
+    peer.on('connection', (connection) => {
+        conn = connection;
+        setupConnectionEvents();
+    });
 
-            const localVideo = document.getElementById('local-video');
-            const remoteVideo = document.getElementById('remote-video');
-            const callIdInput = document.getElementById('call-id-input');
-            const callBtn = document.getElementById('call-btn');
+    function connectToPeer() {
+        const remoteId = document.getElementById('remote-code-input').value.trim();
+        if (!remoteId) return alert('Please enter a code!');
 
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    localVideo.srcObject = stream;
-                })
-                .catch(error => {
-                    console.error("ক্যামেরা ত্রুটি: ", error);
-                    alert("দয়া করে ক্যামেরা ও মাইক্রোফোনের পারমিশন দিন!");
-                });
+        conn = peer.connect(remoteId);
+        setupConnectionEvents();
 
-            peer.on('call', call => {
-                call.answer(localStream);
-                call.on('stream', remoteStream => {
-                    remoteVideo.srcObject = remoteStream;
+        if (localStream) {
+            currentCall = peer.call(remoteId, localStream);
+            currentCall.on('stream', (remoteStream) => {
+                document.getElementById('remote-video').srcObject = remoteStream;
+            });
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: false, audio: true }).then(stream => {
+                currentCall = peer.call(remoteId, stream);
+                currentCall.on('stream', (remoteStream) => {
+                    document.getElementById('remote-video').srcObject = remoteStream;
                 });
             });
+        }
+        alert('Connecting...');
+    }
 
-            callBtn.addEventListener('click', () => {
-                const remoteId = callIdInput.value.trim();
-                if (!remoteId) {
-                    alert("দয়া করে আইডি দিন!");
-                    return;
+    function setupConnectionEvents() {
+        conn.on('data', (data) => {
+            appendMessage('Remote: ' + data);
+        });
+    }
+
+    // Camera On/Off Toggle Function
+    async function toggleCamera() {
+        const camBtn = document.getElementById('cam-btn');
+        const micBtn = document.getElementById('mic-btn');
+
+        if (!isCameraOn) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('local-video').srcObject = localStream;
+                isCameraOn = true;
+                camBtn.innerText = "Turn Off Camera";
+                micBtn.disabled = false;
+
+                // Jodi age thekei call connected thake, tahole track update kore dite hobe
+                if (currentCall) {
+                    const videoTrack = localStream.getVideoTracks()[0];
+                    const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === videoTrack.kind);
+                    if (sender) sender.replaceTrack(videoTrack);
                 }
-
-                const call = peer.call(remoteId, localStream);
-                call.on('stream', remoteStream => {
-                    remoteVideo.srcObject = remoteStream;
-                });
-            });
+            } catch (err) {
+                alert('Camera permission denied or error!');
+            }
+        } else {
+            localStream.getTracks().forEach(track => track.stop());
+            document.getElementById('local-video').srcObject = null;
+            isCameraOn = false;
+            camBtn.innerText = "Turn On Camera";
+            micBtn.disabled = true;
+            micBtn.innerText = "Mute Mic";
+            isMicMuted = false;
         }
-    </script>
+    }
+
+    // Mic Mute/Unmute Function
+    function toggleMic() {
+        if (!localStream) return;
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            isMicMuted = !isMicMuted;
+            audioTrack.enabled = !isMicMuted;
+            document.getElementById('mic-btn').innerText = isMicMuted ? "Unmute Mic" : "Mute Mic";
+        }
+    }
+
+    // Chat Functions
+    function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (conn && conn.open) {
+            conn.send(message);
+            appendMessage('You: ' + message);
+            input.value = '';
+        } else {
+            alert('Not connected to any device yet!');
+        }
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    function appendMessage(text) {
+        const chatBox = document.getElementById('chat-messages');
+        chatBox.innerHTML += `<div>${text}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+</script>
+
 </body>
 </html>
