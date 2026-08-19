@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Video Call App</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 700px; text-align: center; }
+        input, button { padding: 12px; font-size: 16px; margin: 8px; border-radius: 6px; border: 1px solid #ccc; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #app-screen { display: none; }
+        .video-container { display: flex; justify-content: space-around; margin-top: 20px; gap: 10px; }
+        video { width: 48%; height: 220px; background: #000; border-radius: 8px; transform: scaleX(-1); object-fit: cover; }
+        .error { color: red; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <!-- ১. পাসওয়ার্ড স্ক্রিন -->
+        <div id="login-screen">
+            <h2>🔒 Google Script Security</h2>
+            <p>পাসওয়ার্ড দিয়ে প্রবেশ করুন</p>
+            <input type="password" id="pass-input" placeholder="পাসওয়ার্ড লিখুন">
+            <br>
+            <button onclick="verifyPassword()">ভেরিফাই করুন</button>
+            <div id="error-box" class="error"></div>
+        </div>
+
+        <!-- ২. ভিডিও কল স্ক্রিন -->
+        <div id="app-screen">
+            <h2>🎥 ভিডিও ও অডিও কল</h2>
+            <p>আপনার ইউনিক আইডি: <span id="my-id" style="color:green; font-weight:bold;">লোড হচ্ছে...</span></p>
+            
+            <div>
+                <input type="text" id="call-id-input" placeholder="অপর ব্যক্তির আইডি দিন">
+                <button id="call-btn">কল করুন</button>
+            </div>
+
+            <div class="video-container">
+                <video id="local-video" autoplay muted playsinline></video>
+                <video id="remote-video" autoplay playsinline></video>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        // এখানে আপনার Google Apps Script-এর Web App URL বসাবেন
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpeu1RCUEawElIJedCXoyoPKv987iq26IeDVmTB2WXpswkh30guwP_NpMpebIpSbhT/exec";
+
+        function verifyPassword() {
+            const pass = document.getElementById("pass-input").value;
+            const errorBox = document.getElementById("error-box");
+            
+            if(!pass) {
+                errorBox.innerText = "দয়া করে পাসওয়ার্ড দিন!";
+                return;
+            }
+
+            errorBox.innerText = "চেক করা হচ্ছে...";
+
+            // Google Apps Script-এ পাসওয়ার্ড চেক করার জন্য রিকোয়েস্ট পাঠানো
+            fetch(SCRIPT_URL + "?pass=" + encodeURIComponent(pass))
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        document.getElementById("login-screen").style.display = "none";
+                        document.getElementById("app-screen").style.display = "block";
+                        
+                        // Script থেকে আসা ইউনিক আইডি দেখানো
+                        document.getElementById("my-id").innerText = data.uniqueId;
+                        
+                        // ভিডিও কল ইনিশিয়েট করা
+                        initVideoCall();
+                    } else {
+                        errorBox.innerText = data.message;
+                    }
+                })
+                .catch(err => {
+                    errorBox.innerText = "কানেকশন এরর! আবার চেষ্টা করুন।";
+                    console.error(err);
+                });
+        }
+
+        function initVideoCall() {
+            const peer = new Peer();
+            let localStream;
+
+            const localVideo = document.getElementById('local-video');
+            const remoteVideo = document.getElementById('remote-video');
+            const callIdInput = document.getElementById('call-id-input');
+            const callBtn = document.getElementById('call-btn');
+
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    localStream = stream;
+                    localVideo.srcObject = stream;
+                })
+                .catch(err => alert("ক্যামেরা বা মাইক্রোফোনের পারমিশন দিন!"));
+
+            peer.on('call', call => {
+                call.answer(localStream);
+                call.on('stream', remoteStream => {
+                    remoteVideo.srcObject = remoteStream;
+                });
+            });
+
+            callBtn.addEventListener('click', () => {
+                const remoteId = callIdInput.value.trim();
+                if (!remoteId) return alert("আইডি দিন!");
+
+                const call = peer.call(remoteId, localStream);
+                call.on('stream', remoteStream => {
+                    remoteVideo.srcObject = remoteStream;
+                });
+            });
+        }
+    </script>
+</body>
+</html>
