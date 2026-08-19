@@ -25,16 +25,17 @@
             background-image: radial-gradient(circle at top right, #1e1b4b, transparent), radial-gradient(circle at bottom left, #0f172a, transparent);
             color: var(--text-main);
             margin: 0;
-            padding: 15px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
-            min-height: 95vh;
+            min-height: 100vh;
             box-sizing: border-box;
         }
 
         h2 {
             text-align: center;
-            margin: 5px 0 15px 0;
+            margin: 5px 0 10px 0;
+            font-size: clamp(1.2rem, 2.5vw, 1.8rem);
             font-weight: 600;
             letter-spacing: 0.5px;
             background: linear-gradient(to right, #818cf8, #c084fc);
@@ -46,23 +47,29 @@
             background: var(--card-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--border);
-            padding: 15px;
+            padding: 12px 15px;
             border-radius: 12px;
-            max-width: 600px;
-            margin: 0 auto 15px auto;
+            max-width: 800px;
+            margin: 0 auto 10px auto;
+            width: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
+            box-sizing: border-box;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .code-box {
+            font-size: clamp(0.9rem, 2vw, 1rem);
         }
 
         .code-box span {
             color: var(--accent);
             font-weight: bold;
             font-family: monospace;
-            font-size: 16px;
+            font-size: clamp(1rem, 2.2vw, 1.1rem);
             background: rgba(99, 102, 241, 0.1);
             padding: 4px 8px;
             border-radius: 4px;
@@ -71,6 +78,10 @@
         .connect-box {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+            max-width: 400px;
+            justify-content: flex-end;
         }
 
         input {
@@ -81,6 +92,8 @@
             border-radius: 6px;
             outline: none;
             font-size: 14px;
+            flex: 1;
+            min-width: 150px;
         }
 
         input:focus {
@@ -96,6 +109,7 @@
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         button:hover {
@@ -113,33 +127,29 @@
             display: flex;
             flex: 1;
             gap: 15px;
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
             width: 100%;
-            flex-wrap: wrap;
-            justify-content: center;
+            box-sizing: border-box;
         }
 
         .video-section {
             flex: 2;
-            min-width: 320px;
             display: flex;
             flex-direction: column;
             gap: 10px;
+            min-width: 0;
         }
 
         .video-grid {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 12px;
+            width: 100%;
         }
 
         .video-box {
             position: relative;
-            flex: 1;
-            min-width: 280px;
-            max-width: 450px;
             background: #1e293b;
             border-radius: 12px;
             overflow: hidden;
@@ -159,13 +169,13 @@
 
         .label {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
+            bottom: 8px;
+            left: 8px;
             background: rgba(15, 23, 42, 0.75);
             backdrop-filter: blur(4px);
-            padding: 4px 10px;
+            padding: 3px 8px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
             border: 1px solid var(--border);
         }
@@ -174,11 +184,14 @@
             display: flex;
             gap: 10px;
             justify-content: center;
+            flex-wrap: wrap;
             margin-top: 5px;
         }
 
         .controls button {
             background: #334155;
+            flex: 1;
+            max-width: 180px;
         }
         .controls button.active {
             background: var(--danger);
@@ -191,15 +204,16 @@
         .chat-section {
             flex: 1;
             min-width: 280px;
-            max-width: 350px;
+            max-width: 380px;
             background: var(--card-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex;
             flex-direction: column;
-            height: 380px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            height: auto;
+            max-height: 75vh;
         }
 
         .chat-header {
@@ -248,9 +262,37 @@
             flex: 1;
         }
 
-        @media (max-width: 768px) {
-            .setup-card { flex-direction: column; align-items: stretch; text-align: center; }
-            .connect-box { justify-content: center; }
+        /* Responsive Breakpoints for Tablet & Mobile */
+        @media (max-width: 900px) {
+            .main-layout {
+                flex-direction: column;
+            }
+            .chat-section {
+                max-width: 100%;
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 5px;
+            }
+            .setup-card {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                padding: 10px;
+            }
+            .connect-box {
+                max-width: 100%;
+                justify-content: center;
+            }
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+            .video-box {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
@@ -354,9 +396,8 @@
                 isConnected = true;
             });
             
-            // Handle call close/disconnect
             currentCall.on('close', () => {
-                triggerDisconnect();
+                triggerDisconnect(false);
             });
         });
     }
@@ -370,7 +411,7 @@
             });
 
             call.on('close', () => {
-                triggerDisconnect();
+                triggerDisconnect(false);
             });
         });
     }
@@ -385,14 +426,14 @@
     function setupConnectionEvents() {
         conn.on('data', (data) => {
             if (data === '__DISCONNECT__') {
-                triggerDisconnect(false); // false means don't send disconnect back again
+                triggerDisconnect(false); 
             } else {
                 appendMessage(data, 'incoming');
             }
         });
 
         conn.on('close', () => {
-            triggerDisconnect();
+            triggerDisconnect(false);
         });
     }
 
@@ -410,7 +451,6 @@
                 camBtn.classList.add('active');
                 micBtn.disabled = false;
 
-                // Update active call streams if already connected
                 if (currentCall) {
                     const videoTrack = localStream.getVideoTracks()[0];
                     const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === videoTrack.kind);
@@ -474,12 +514,14 @@
     }
 
     // Mutual Disconnect & Auto-Refresh Handler
-    function triggerDisconnect(notifyPeer = true) {
-        if (notifyPeer && conn && conn.open) {
+    function triggerDisconnect(sendSignal = true) {
+        if (sendSignal && conn && conn.open) {
             conn.send('__DISCONNECT__');
         }
-        alert('Partner disconnected. Page is refreshing...');
-        window.location.reload();
+        // পেজ রিফ্রেশ করার আগে সামান্য ডিলে বা অ্যালার্ট দেওয়া হয়েছে যাতে ইউজার বুঝতে পারে
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     }
 </script>
 
