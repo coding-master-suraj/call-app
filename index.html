@@ -632,6 +632,7 @@
 
         setupUIForMode(activeCallMode);
         const stream = await ensureLocalStream(activeCallMode === 'audio');
+        if (!stream) return;
         pendingCall.answer(stream);
         setupCallEvents(pendingCall);
         lockUIOnConnect();
@@ -652,13 +653,15 @@
         if (remoteId.length !== 4) return alert('Please enter a valid 4-digit code!');
         if (remoteId === myId) return alert('You cannot connect to yourself!');
 
+        const stream = await ensureLocalStream(activeCallMode === 'audio');
+        if (!stream) return;
+
         lockUIOnConnect();
         setupUIForMode(activeCallMode);
 
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        const stream = await ensureLocalStream(activeCallMode === 'audio');
         const call = peer.call(remoteId, stream, {
             metadata: { type: activeCallMode }
         });
@@ -738,6 +741,13 @@
 
     async function ensureLocalStream(audioOnly = false) {
         if (localStream) return localStream;
+        
+        // চেক করা হচ্ছে ব্রাউজারে মিডিয়া ডিভাইস সাপোর্ট আছে কি না
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert("Your browser does not support audio/video input!");
+            return null;
+        }
+
         try {
             const constraints = audioOnly ? { video: false, audio: true } : { video: { facingMode: 'user' }, audio: true };
             localStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -753,8 +763,20 @@
             return localStream;
         } catch (err) {
             console.warn("Camera/Mic error:", err);
-            alert("Microphone permission is required for audio/video calls!");
-            throw err;
+            
+            // ফলব্যাক হিসেবে যদি হার্ডওয়্যার বা পারমিশন ফেইল করে তবে ফেক বা এম্পটি স্ট্রিম বা অডিও কন্টটেক্সট তৈরি করবে যাতে অ্যাপ ক্র্যাশ না করে
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const dst = oscillator.connect(audioCtx.createMediaStreamDestination());
+                oscillator.start();
+                localStream = dst.stream;
+                console.warn("Using fallback audio stream.");
+                return localStream;
+            } catch(e) {
+                alert("Microphone permission was denied or is blocked by your browser! Please check the address bar lock icon and allow microphone access.");
+                return null;
+            }
         }
     }
 
