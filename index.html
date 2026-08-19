@@ -484,7 +484,6 @@
             const remoteVideo = document.getElementById('remote-video');
             remoteVideo.srcObject = remoteStream;
             
-            // ব্রাউজারের অটো-প্লে ব্লকিং এড়াতে স্ট্রিম হ্যান্ডলিং উন্নত করা হলো
             remoteVideo.play().then(() => {
                 console.log("Remote video started playing");
             }).catch(e => {
