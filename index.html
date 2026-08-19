@@ -249,7 +249,8 @@
             border: 1px solid var(--border);
             backdrop-filter: blur(8px);
             flex: 1;
-            max-width: 150px;
+            min-width: 120px;
+            max-width: 160px;
             box-shadow: none;
         }
 
@@ -262,6 +263,11 @@
             background: var(--danger);
             border-color: var(--danger);
             box-shadow: 0 4px 12px rgba(244, 63, 94, 0.3);
+        }
+        
+        .controls button.speaker-normal {
+            background: #f59e0b;
+            border-color: #f59e0b;
         }
 
         .chat-section {
@@ -398,7 +404,6 @@
             font-size: 13.5px;
         }
 
-        /* Incoming Call Modal Popup */
         #call-modal {
             position: fixed;
             top: 0;
@@ -512,7 +517,6 @@
 
     <div id="animation-overlay"></div>
 
-    <!-- Call Notification Modal -->
     <div id="call-modal">
         <div class="modal-content">
             <h3 id="modal-title">Incoming Call</h3>
@@ -553,9 +557,7 @@
                 </div>
             </div>
 
-            <div class="controls" id="controls-container">
-                <!-- Dynamically updated based on Call Mode -->
-            </div>
+            <div class="controls" id="controls-container"></div>
         </div>
 
         <div class="chat-section">
@@ -578,7 +580,6 @@
         </div>
     </div>
 
-    <!-- Hidden audio element for handling remote audio playback safely -->
     <audio id="remote-audio" autoplay></audio>
 
 <script>
@@ -589,8 +590,12 @@
     let pendingCall = null;
     let isCameraOn = false;
     let isMicMuted = false;
+    let isLoudSpeaker = true;
     let usingFrontCamera = true;
     let activeCallMode = 'video';
+    
+    // Check if the user is on a mobile device or tablet
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     function generate4DigitCode() {
         return Math.floor(1000 + Math.random() * 9000).toString();
@@ -679,6 +684,7 @@
             
             controls.innerHTML = `
                 <button id="mic-btn" onclick="toggleMic()">Mute Mic</button>
+                <button id="speaker-btn" onclick="toggleSpeaker()">Speaker: Loud</button>
             `;
         } else {
             localBox.style.display = 'flex';
@@ -689,6 +695,7 @@
                 <button id="cam-btn" onclick="toggleCamera()">Turn Off Cam</button>
                 <button id="switch-cam-btn" onclick="switchCamera()">Switch Cam</button>
                 <button id="mic-btn" onclick="toggleMic()">Mute Mic</button>
+                <button id="speaker-btn" onclick="toggleSpeaker()">Speaker: Loud</button>
             `;
         }
     }
@@ -696,10 +703,11 @@
     function setupCallEvents(call) {
         currentCall = call;
         
-        call.on('stream', (remoteStream) => {
+        call.on('stream', async (remoteStream) => {
             if (activeCallMode === 'video') {
                 const remoteVideo = document.getElementById('remote-video');
                 remoteVideo.srcObject = remoteStream;
+                applyAudioRouting(remoteVideo);
                 
                 let playPromise = remoteVideo.play();
                 if (playPromise !== undefined) {
@@ -712,6 +720,8 @@
             } else {
                 const remoteAudio = document.getElementById('remote-audio');
                 remoteAudio.srcObject = remoteStream;
+                applyAudioRouting(remoteAudio);
+
                 remoteAudio.play().catch(err => {
                     console.log("Audio autoplay restricted, waiting for interaction");
                     document.body.addEventListener('click', () => {
@@ -742,7 +752,6 @@
     async function ensureLocalStream(audioOnly = false) {
         if (localStream) return localStream;
         
-        // চেক করা হচ্ছে ব্রাউজারে মিডিয়া ডিভাইস সাপোর্ট আছে কি না
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             alert("Your browser does not support audio/video input!");
             return null;
@@ -764,17 +773,15 @@
         } catch (err) {
             console.warn("Camera/Mic error:", err);
             
-            // ফলব্যাক হিসেবে যদি হার্ডওয়্যার বা পারমিশন ফেইল করে তবে ফেক বা এম্পটি স্ট্রিম বা অডিও কন্টটেক্সট তৈরি করবে যাতে অ্যাপ ক্র্যাশ না করে
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioCtx.createOscillator();
                 const dst = oscillator.connect(audioCtx.createMediaStreamDestination());
                 oscillator.start();
                 localStream = dst.stream;
-                console.warn("Using fallback audio stream.");
                 return localStream;
             } catch(e) {
-                alert("Microphone permission was denied or is blocked by your browser! Please check the address bar lock icon and allow microphone access.");
+                alert("Microphone permission was denied or is blocked by your browser! Please check the address bar lock icon.");
                 return null;
             }
         }
@@ -799,7 +806,6 @@
 
     async function toggleCamera() {
         const camBtn = document.getElementById('cam-btn');
-        const switchBtn = document.getElementById('switch-cam-btn');
 
         if (!isCameraOn) {
             try {
@@ -894,6 +900,57 @@
             micBtn.innerText = isMicMuted ? "Unmute" : "Mute Mic";
             micBtn.classList.toggle('active', isMicMuted);
         }
+    }
+
+    // Advanced Speaker / Earpiece routing for Mobile & PC
+    async function toggleSpeaker() {
+        isLoudSpeaker = !isLoudSpeaker;
+        const speakerBtn = document.getElementById('speaker-btn');
+        const remoteVideo = document.getElementById('remote-video');
+        const remoteAudio = document.getElementById('remote-audio');
+
+        const activeMediaElement = (activeCallMode === 'video') ? remoteVideo : remoteAudio;
+        applyAudioRouting(activeMediaElement);
+
+        if (isLoudSpeaker) {
+            speakerBtn.innerText = "Speaker: Loud";
+            speakerBtn.classList.remove('speaker-normal');
+        } else {
+            speakerBtn.innerText = isMobileDevice ? "Speaker: Ear" : "Speaker: Normal";
+            speakerBtn.classList.add('speaker-normal');
+        }
+    }
+
+    async function applyAudioRouting(element) {
+        if (!element) return;
+
+        if (isMobileDevice && 'setSinkId' in element) {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+                
+                if (audioOutputs.length > 1) {
+                    // Try to route to earpiece or default speaker based on state
+                    const targetDevice = audioOutputs.find(d => {
+                        const name = d.label.toLowerCase();
+                        if (!isLoudSpeaker) {
+                            return name.includes('earpiece') || name.includes('receiver') || name.includes('built-in');
+                        } else {
+                            return name.includes('speaker') || name.includes('loudspeaker');
+                        }
+                    });
+
+                    if (targetDevice) {
+                        await element.setSinkId(targetDevice.deviceId);
+                    }
+                }
+            } catch (err) {
+                console.log("SinkId routing fallback to volume control:", err);
+            }
+        }
+
+        // Fallback volume control layer for PC and unsupported mobile browsers
+        element.volume = isLoudSpeaker ? 1.0 : 0.35;
     }
 
     function sendMessage() {
