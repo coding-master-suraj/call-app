@@ -176,17 +176,54 @@
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpeu1RCUEawElIJedCXoyoPKv987iq26IeDVmTB2WXpswkh30guwP_NpMpebIpSbhT/exec";
 
         // পাসওয়ার্ড ভেরিফিকেশন লজিক (গুগল স্ক্রিপ্ট থেকে চেক হবে)
-        function verifyPassword() {
-            const enteredPass = document.getElementById("pass-input").value;
-            const errorBox = document.getElementById("error-box");
+       function verifyPassword() {
+    const passInput = document.getElementById("pass-input");
+    const verifyBtn = document.getElementById("verify-btn"); // বাটনে একটি আইডি যোগ করতে হবে
+    const errorBox = document.getElementById("error-box");
+    const enteredPass = passInput.value.trim();
 
-            if (!enteredPass) {
-                errorBox.innerText = "দয়া করে পাসওয়ার্ড লিখুন!";
-                return;
+    if (!enteredPass) {
+        errorBox.innerText = "দয়া করে পাসওয়ার্ড লিখুন!";
+        return;
+    }
+
+    // ১. ক্লিক করার সাথে সাথেই ইনপুট বক্স ও বাটন ডিজেবল (লক) করে দেওয়া
+    passInput.disabled = true;
+    verifyBtn.disabled = true;
+    verifyBtn.innerText = "যাচাই করা হচ্ছে...";
+    errorBox.innerText = "";
+
+    // গুগল স্ক্রিপ্টে পাসওয়ার্ড পাঠানো
+    fetch(SCRIPT_URL + "?pass=" + encodeURIComponent(enteredPass))
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                // পাসওয়ার্ড সঠিক হলে লগইন স্ক্রিন লুকিয়ে ভিডিও কল স্ক্রিন দেখাবে
+                document.getElementById("login-screen").style.display = "none";
+                document.getElementById("app-screen").style.display = "block";
+                
+                // স্ক্রিপ্ট থেকে আসা ইউনিক আইডি সেট করা
+                document.getElementById("my-id").innerText = data.uniqueId;
+                
+                // ভিডিও কল ফাংশন শুরু হবে
+                initVideoCall();
+            } else {
+                // পাসওয়ার্ড ভুল হলে আবার আনলক করে দেওয়া যাতে পুনরায় চেষ্টা করা যায়
+                passInput.disabled = false;
+                verifyBtn.disabled = false;
+                verifyBtn.innerText = "ভেরিফাই করুন";
+                errorBox.innerText = data.message;
             }
-
-            errorBox.innerText = "যাচাই করা হচ্ছে...";
-
+        })
+        .catch(err => {
+            // নেটওয়ার্ক বা অন্য কোনো এরর হলে আবার আনলক করা
+            passInput.disabled = false;
+            verifyBtn.disabled = false;
+            verifyBtn.innerText = "ভেরিফাই করুন";
+            errorBox.innerText = "কানেকশন এরর! আবার চেষ্টা করুন।";
+            console.error(err);
+        });
+}
             // গুগল স্ক্রিপ্টে পাসওয়ার্ড পাঠানো
             fetch(SCRIPT_URL + "?pass=" + encodeURIComponent(enteredPass))
                 .then(res => res.json())
