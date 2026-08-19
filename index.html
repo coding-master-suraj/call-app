@@ -526,7 +526,6 @@
         console.log('My Peer ID:', id);
     });
 
-    // কেউ কল করলে সাথে সাথে পপ-আপ নোটিফিকেশন দেখাবে
     peer.on('call', (call) => {
         pendingCall = call;
         document.getElementById('caller-id-display').innerText = call.peer;
@@ -538,7 +537,6 @@
         setupConnectionEvents();
     });
 
-    // Accept বাটনে ক্লিক করলে
     async function acceptCall() {
         document.getElementById('call-modal').style.display = 'none';
         if (!pendingCall) return;
@@ -549,7 +547,6 @@
         lockUIOnConnect();
     }
 
-    // Reject বাটনে ক্লিক করলে
     function rejectCall() {
         document.getElementById('call-modal').style.display = 'none';
         if (pendingCall) {
@@ -565,11 +562,9 @@
 
         lockUIOnConnect();
 
-        // ডাটা কানেকশন তৈরি
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        // ভিডিও কল পাঠানো
         const stream = await ensureLocalStream();
         const call = peer.call(remoteId, stream);
         setupCallEvents(call);
@@ -790,16 +785,19 @@
         }
     }
 
+    // এখানে লুপের ভেতর `setTimeout` ব্যবহার করে একটির পর একটি (sequence-এ) ইমোজি এনিমেশন করা হয়েছে
     function triggerEmojiAnimation(emoji) {
         const overlay = document.getElementById('animation-overlay');
         for (let i = 0; i < 5; i++) {
-            const el = document.createElement('div');
-            el.className = 'floating-emoji';
-            el.innerText = emoji;
-            el.style.left = Math.random() * 80 + 10 + 'vw';
-            el.style.animationDuration = (3 + Math.random()) + 's';
-            overlay.appendChild(el);
-            setTimeout(() => el.remove(), 4000);
+            setTimeout(() => {
+                const el = document.createElement('div');
+                el.className = 'floating-emoji';
+                el.innerText = emoji;
+                el.style.left = Math.random() * 80 + 10 + 'vw';
+                el.style.animationDuration = (3 + Math.random()) + 's';
+                overlay.appendChild(el);
+                setTimeout(() => el.remove(), 4000);
+            }, i * 300); // প্রতি ইমোজির মাঝে ৩০০ মিলিসেকেন্ড গ্যাপ থাকবে
         }
     }
 
