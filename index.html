@@ -449,9 +449,8 @@
         console.log('Connected with ID:', id);
     });
 
-    // কেউ কল করলে অটোমেটিক রিসিভ করে নিজের স্ট্রিম ব্যাক পাঠাবে (টু-ওয়ে হ্যান্ডশেক)
+    // কেউ কল করলে সাথে সাথে নিজের স্ট্রিম দিয়ে এনসার করা এবং স্ট্রিম রিসিভ হ্যান্ডেল সেট করা
     peer.on('call', (call) => {
-        currentCall = call;
         ensureLocalStream().then(stream => {
             call.answer(stream);
             setupCallEvents(call);
@@ -459,7 +458,6 @@
         lockUIOnConnect();
     });
 
-    // কেউ ডাটা কানেকশন রিকোয়েস্ট পাঠালে তা এক্সেপ্ট করবে
     peer.on('connection', (connection) => {
         conn = connection;
         setupConnectionEvents();
@@ -477,10 +475,10 @@
         conn = peer.connect(remoteId);
         setupConnectionEvents();
 
-        // ভিডিও কল ইনিশিয়েট করা এবং সাথে সাথে দুই দিক থেকে কল এক্সচেঞ্জ নিশ্চিত করা
+        // ভিডিও কল ইনিশিয়েট করা
         ensureLocalStream().then(stream => {
-            currentCall = peer.call(remoteId, stream);
-            setupCallEvents(currentCall);
+            const call = peer.call(remoteId, stream);
+            setupCallEvents(call);
         });
     }
 
